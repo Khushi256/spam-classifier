@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpamScan</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #111118;
+      --border:    #1e1e2e;
+      --accent:    #00ff88;
+      --danger:    #ff3b5c;
+      --muted:     #3a3a50;
+      --text:      #e2e2f0;
+      --subtext:   #6b6b8a;
+      --mono:      'Space Mono', monospace;
+      --sans:      'DM Sans', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 20px 80px;
+    }
+
+    /* ── noise overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrap { position: relative; z-index: 1; width: 100%; max-width: 640px; }
+
+    /* ── header ── */
+    header { margin-bottom: 48px; }
+
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-family: var(--mono);
+      font-size: clamp(28px, 6vw, 42px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      color: var(--text);
+    }
+
+    h1 span { color: var(--accent); }
+
+    .subtitle {
+      margin-top: 10px;
+      font-size: 14px;
+      color: var(--subtext);
+      font-weight: 300;
+      letter-spacing: 0.01em;
+    }
+
+    /* ── card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 28px;
+    }
+
+    label {
+      display: block;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--subtext);
+      margin-bottom: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 15px;
+      font-weight: 300;
+      line-height: 1.6;
+      padding: 14px 16px;
+      resize: none;
+      height: 130px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea::placeholder { color: var(--muted); }
+    textarea:focus { border-color: var(--accent); }
+
+    .char-count {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      text-align: right;
+      margin-top: 6px;
+    }
+
+    .char-count.warn { color: var(--danger); }
+
+    /* ── examples ── */
+    .examples {
+      margin-top: 14px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      font-size: 11px;
+      font-family: var(--mono);
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--subtext);
+      padding: 4px 10px;
+      border-radius: 100px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── button ── */
+    button.scan-btn {
+      margin-top: 20px;
+      width: 100%;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 14px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    button.scan-btn:hover  { opacity: 0.88; }
+    button.scan-btn:active { transform: scale(0.99); }
+    button.scan-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── scanning animation ── */
+    .scanning {
+      margin-top: 24px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--subtext);
+    }
+
+    .scanning.active { display: flex; }
+
+    .dot-row { display: flex; gap: 4px; }
+    .dot {
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 1s ease-in-out infinite;
+    }
+    .dot:nth-child(2) { animation-delay: 0.15s; }
+    .dot:nth-child(3) { animation-delay: 0.30s; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.2; transform: scale(0.8); }
+      50%       { opacity: 1;   transform: scale(1);   }
+    }
+
+    /* ── result ── */
+    .result {
+      margin-top: 24px;
+      border-radius: 4px;
+      padding: 20px 22px;
+      display: none;
+      border: 1px solid;
+      animation: slidein 0.25s ease;
+    }
+
+    @keyframes slidein {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0);   }
+    }
+
+    .result.ham  { border-color: var(--accent); background: rgba(0,255,136,0.05); }
+    .result.spam { border-color: var(--danger); background: rgba(255,59,92,0.05); }
+    .result.visible { display: block; }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .verdict {
+      font-family: var(--mono);
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .result.ham  .verdict { color: var(--accent); }
+    .result.spam .verdict { color: var(--danger); }
+
+    .badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 3px;
+    }
+
+    .result.ham  .badge { background: rgba(0,255,136,0.12); color: var(--accent); }
+    .result.spam .badge { background: rgba(255,59,92,0.12);  color: var(--danger); }
+
+    /* confidence bar */
+    .conf-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--subtext);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .bar-track {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    .result.ham  .bar-fill { background: var(--accent); }
+    .result.spam .bar-fill { background: var(--danger); }
+
+    .conf-value {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--subtext);
+      margin-top: 5px;
+      text-align: right;
+    }
+
+    /* ── history ── */
+    .history-section { margin-top: 40px; }
+
+    .history-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .history-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    .history-item:hover { border-color: var(--muted); }
+
+    .history-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .history-dot.ham  { background: var(--accent); }
+    .history-dot.spam { background: var(--danger); }
+
+    .history-text {
+      font-size: 13px;
+      color: var(--subtext);
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .history-conf {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    /* ── error ── */
+    .error-msg {
+      margin-top: 14px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--danger);
+      display: none;
+    }
+
+    .error-msg.visible { display: block; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <header>
+      <p class="eyebrow">PyTorch · BiLSTM / CNN</p>
+      <h1>Spam<span>Scan</span></h1>
+      <p class="subtitle">Paste any SMS or email text — model classifies it in real time.</p>
+    </header>
+
+    <div class="card">
+      <label for="msg">Message</label>
+      <textarea id="msg" placeholder="Type or paste a message here…" maxlength="500"></textarea>
+      <div class="char-count" id="charCount">0 / 500</div>
+
+      <div class="examples">
+        <span class="eyebrow" style="align-self:center; margin-right:4px;">Try:</span>
+        <button class="chip" onclick="fillExample('spam1')">Prize winner</button>
+        <button class="chip" onclick="fillExample('spam2')">Urgent loan</button>
+        <button class="chip" onclick="fillExample('ham1')">Meet at 5?</button>
+        <button class="chip" onclick="fillExample('ham2')">Dinner plans</button>
+      </div>
+
+      <button class="scan-btn" id="scanBtn" onclick="scan()">Scan Message</button>
+
+      <div class="scanning" id="scanning">
+        <div class="dot-row">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
+        <span>Running inference…</span>
+      </div>
+
+      <p class="error-msg" id="errorMsg"></p>
+
+      <div class="result" id="result">
+        <div class="result-header">
+          <div class="verdict" id="verdictText">—</div>
+          <div class="badge" id="badgeText">—</div>
+        </div>
+        <div class="conf-label">Spam Confidence</div>
+        <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
+        <div class="conf-value" id="confValue">—</div>
+      </div>
+    </div>
+
+    <div class="history-section" id="historySection" style="display:none">
+      <p class="history-title">Recent Scans</p>
+      <div class="history-list" id="historyList"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const EXAMPLES = {
+      spam1: "WINNER!! As a valued network customer you have been selected to receive a £900 prize reward! Call 09061701461 to claim.",
+      spam2: "Urgent! Your mobile number has been awarded a £2,000 bonus. To claim call our customer service immediately.",
+      ham1:  "Hey, are we still meeting at 5? Let me know if you need me to pick anything up.",
+      ham2:  "Sounds good for dinner tonight. I'll make a reservation for 7:30.",
+    };
+
+    const textarea   = document.getElementById('msg');
+    const charCount  = document.getElementById('charCount');
+    const scanBtn    = document.getElementById('scanBtn');
+    const scanning   = document.getElementById('scanning');
+    const resultEl   = document.getElementById('result');
+    const errorMsg   = document.getElementById('errorMsg');
+    const history    = [];
+
+    textarea.addEventListener('input', () => {
+      const n = textarea.value.length;
+      charCount.textContent = `${n} / 500`;
+      charCount.classList.toggle('warn', n > 450);
+    });
+
+    function fillExample(key) {
+      textarea.value = EXAMPLES[key];
+      textarea.dispatchEvent(new Event('input'));
+    }
+
+    async function scan() {
+      const text = textarea.value.trim();
+      if (!text) return;
+
+      // reset UI
+      scanBtn.disabled = true;
+      scanning.classList.add('active');
+      resultEl.classList.remove('visible', 'spam', 'ham');
+      errorMsg.classList.remove('visible');
+
+      try {
+        const res  = await fetch('/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || 'Server error');
+        }
+
+        const data = await res.json();
+        showResult(data, text);
+        addHistory(data, text);
+
+      } catch (err) {
+        errorMsg.textContent = `Error: ${err.message}`;
+        errorMsg.classList.add('visible');
+      } finally {
+        scanBtn.disabled = false;
+        scanning.classList.remove('active');
+      }
+    }
+
+    function showResult(data, text) {
+      const isSpam = data.is_spam;
+      const conf   = Math.round(data.confidence * 100);
+
+      resultEl.className = `result ${isSpam ? 'spam' : 'ham'} visible`;
+      document.getElementById('verdictText').textContent = isSpam ? 'SPAM' : 'HAM';
+      document.getElementById('badgeText').textContent   = isSpam ? 'Block recommended' : 'Looks safe';
+
+      // trigger bar animation after paint
+      const bar = document.getElementById('barFill');
+      bar.style.width = '0%';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => { bar.style.width = `${conf}%`; });
+      });
+
+      document.getElementById('confValue').textContent = `${conf}% spam probability`;
+    }
+
+    function addHistory(data, text) {
+      history.unshift({ data, text });
+      if (history.length > 5) history.pop();
+
+      const section = document.getElementById('historySection');
+      const list    = document.getElementById('historyList');
+      section.style.display = 'block';
+      list.innerHTML = '';
+
+      history.forEach(({ data, text }) => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.onclick   = () => { textarea.value = text; textarea.dispatchEvent(new Event('input')); };
+        item.innerHTML = `
+          <div class="history-dot ${data.is_spam ? 'spam' : 'ham'}"></div>
+          <div class="history-text">${text}</div>
+          <div class="history-conf">${Math.round(data.confidence * 100)}%</div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    // Ctrl/Cmd + Enter to scan
+    textarea.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') scan();
+    });
+  </script>
+</body>
+</html>
