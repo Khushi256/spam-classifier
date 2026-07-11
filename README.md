@@ -66,7 +66,7 @@ Expected output after 10 epochs:
 ```
 LSTM  Best Val F1 = ~0.97
 CNN   Best Val F1 = ~0.96
-Winner: LSTM 🏆
+Winner: LSTM 
 ```
 
 ## Running the API
