@@ -97,7 +97,7 @@ curl -X POST http://localhost:8000/predict \
 **With the auto-generated Swagger UI:**
 Open http://localhost:8000/docs in your browser.
 
-## What You Learn From This Project
+## What I Learnt From This Project
 
 | Concept | Where it happens |
 |---|---|
@@ -112,9 +112,3 @@ Open http://localhost:8000/docs in your browser.
 | Model checkpointing | `train.py` |
 | Serving ML via REST API | `api/app.py` |
 
-## Resume Description
-
-> Built a binary text classifier (spam detection) from scratch using PyTorch.
-> Implemented custom tokenizer, vocabulary builder, and sequence padding pipeline.
-> Trained and compared BiLSTM and CNN architectures on the UCI SMS Spam dataset,
-> achieving F1 > 0.97. Deployed the model as a REST API using FastAPI.
